@@ -84,11 +84,14 @@ def download_loom_video(loom_url, output_path, video_id=None):
                         
                         if total > 0:
                             percent = (downloaded / total) * 100
-                            download_progress[video_id] = min(percent, 99)  # Cap at 99% until complete
-                            print(f"\r{video_id}: {percent:.1f}%", end='', flush=True)
+                            # Cap at 95% during download (video + audio streams)
+                            # Reserve 5% for post-processing (merging)
+                            download_progress[video_id] = min(percent * 0.95, 95)
+                            print(f"\r{video_id}: {download_progress[video_id]:.1f}%", end='', flush=True)
                     elif d['status'] == 'finished':
-                        download_progress[video_id] = 100
-                        print(f"\n{video_id}: Complete!")
+                        # Don't set to 100% yet - still need to merge audio/video
+                        download_progress[video_id] = 95
+                        print(f"\n{video_id}: Merging audio...")
         
         # Fallback: Use yt-dlp to download
         # For Loom, download 720p (lowest available) with audio and merge
