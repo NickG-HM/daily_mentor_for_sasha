@@ -824,7 +824,7 @@
                     progressItem.className = 'progress-item downloading';
                     progressItem.innerHTML = `
                         <span>📹 ${video.filename}</span>
-                        <span id="video-progress-${video.id}">⏳ 0%</span>
+                        <span id="video-progress-${video.id}">🎬 Video: 0% | 🎵 Audio: 0%</span>
                     `;
                     
                     try {
@@ -888,11 +888,23 @@
                         
                         if (data.success && data.progress) {
                             // Update each video's progress display
-                            for (const [videoId, percent] of Object.entries(data.progress)) {
+                            for (const [videoId, progressData] of Object.entries(data.progress)) {
                                 const progressSpan = document.getElementById(`video-progress-${videoId}`);
-                                if (progressSpan && videoProgress[videoId] !== undefined && videoProgress[videoId] < 100) {
-                                    videoProgress[videoId] = percent;
-                                    progressSpan.textContent = `⏳ ${Math.round(percent)}%`;
+                                if (progressSpan && videoProgress[videoId] !== undefined) {
+                                    // progressData is now an object: {video: 50, audio: 25, merging: false}
+                                    const videoPercent = Math.round(progressData.video || 0);
+                                    const audioPercent = Math.round(progressData.audio || 0);
+                                    const avgPercent = Math.round((videoPercent + audioPercent) / 2);
+                                    
+                                    videoProgress[videoId] = avgPercent;
+                                    
+                                    if (progressData.merging) {
+                                        progressSpan.textContent = `🔄 Merging...`;
+                                    } else if (avgPercent >= 100) {
+                                        progressSpan.textContent = `✅ Complete`;
+                                    } else {
+                                        progressSpan.textContent = `🎬 Video: ${videoPercent}% | 🎵 Audio: ${audioPercent}%`;
+                                    }
                                 }
                             }
                             

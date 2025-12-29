@@ -20,7 +20,7 @@ DEFAULT_DOWNLOAD_DIR = os.path.expanduser("~/downloads/daily_mentor")
 # Ensure default download directory exists
 os.makedirs(DEFAULT_DOWNLOAD_DIR, exist_ok=True)
 
-# Global progress tracking
+# Global progress tracking - separate video and audio progress
 download_progress = {}
 progress_lock = Lock()
 
@@ -77,21 +77,34 @@ def download_loom_video(loom_url, output_path, video_id=None):
         def progress_hook(d):
             if video_id and d['status'] in ['downloading', 'finished']:
                 with progress_lock:
+                    # Initialize progress structure if not exists
+                    if video_id not in download_progress:
+                        download_progress[video_id] = {'video': 0, 'audio': 0, 'merging': False}
+                    
                     if d['status'] == 'downloading':
-                        # Calculate progress percentage
                         downloaded = d.get('downloaded_bytes', 0)
                         total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
                         
                         if total > 0:
                             percent = (downloaded / total) * 100
-                            # Cap at 95% during download (video + audio streams)
-                            # Reserve 5% for post-processing (merging)
-                            download_progress[video_id] = min(percent * 0.95, 95)
-                            print(f"\r{video_id}: {download_progress[video_id]:.1f}%", end='', flush=True)
+                            filename = d.get('filename', '')
+                            
+                            # Determine if this is video or audio stream
+                            if 'audio' in filename.lower() or 'f-audio' in filename:
+                                download_progress[video_id]['audio'] = min(percent, 100)
+                                print(f"\r{video_id}: Video={download_progress[video_id]['video']:.0f}% Audio={percent:.0f}%", end='', flush=True)
+                            else:
+                                download_progress[video_id]['video'] = min(percent, 100)
+                                print(f"\r{video_id}: Video={percent:.0f}% Audio={download_progress[video_id]['audio']:.0f}%", end='', flush=True)
+                    
                     elif d['status'] == 'finished':
-                        # Don't set to 100% yet - still need to merge audio/video
-                        download_progress[video_id] = 95
-                        print(f"\n{video_id}: Merging audio...")
+                        filename = d.get('filename', '')
+                        if 'audio' in filename.lower() or 'f-audio' in filename:
+                            download_progress[video_id]['audio'] = 100
+                            print(f"\n{video_id}: Audio downloaded, merging...")
+                            download_progress[video_id]['merging'] = True
+                        else:
+                            download_progress[video_id]['video'] = 100
         
         # Fallback: Use yt-dlp to download
         # For Loom, download 720p (lowest available) with audio and merge
@@ -109,7 +122,7 @@ def download_loom_video(loom_url, output_path, video_id=None):
         # Initialize progress
         if video_id:
             with progress_lock:
-                download_progress[video_id] = 0
+                download_progress[video_id] = {'video': 0, 'audio': 0, 'merging': False}
         
         # Download the video
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -126,7 +139,7 @@ def download_loom_video(loom_url, output_path, video_id=None):
                 # Mark as complete
                 if video_id:
                     with progress_lock:
-                        download_progress[video_id] = 100
+                        download_progress[video_id] = {'video': 100, 'audio': 100, 'merging': False}
                 
                 return {
                     'success': True, 
