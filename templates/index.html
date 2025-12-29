@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Mentor Video Downloader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+        }
+
+        .header {
+            background: #ffffff;
+            border-bottom: 1px solid #e0e0e0;
+            color: #212121;
+            padding: 24px 40px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header h1 {
+            font-size: 1.75em;
+            margin: 0;
+            font-weight: 600;
+            color: #212121;
+        }
+
+        .header p {
+            font-size: 0.9em;
+            color: #757575;
+            margin: 0;
+        }
+
+        .controls {
+            padding: 24px 40px;
+            background: #fafafa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .folder-section {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .folder-section label {
+            display: block;
+            font-weight: 500;
+            color: #424242;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .folder-display {
+            background: white;
+            padding: 10px 14px;
+            border-radius: 4px;
+            border: 1px solid #d0d0d0;
+            font-size: 0.9em;
+            color: #212121;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+        }
+
+        .folder-display::before {
+            content: "📁";
+            font-size: 1em;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            height: 40px;
+        }
+
+        .btn-primary {
+            background: #2196F3;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1976D2;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #424242;
+            border: 1px solid #d0d0d0;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #f5f5f5;
+            border-color: #bdbdbd;
+        }
+
+        .btn-success {
+            background: white;
+            color: #424242;
+            border: 1px solid #d0d0d0;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #f5f5f5;
+            border-color: #bdbdbd;
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .content {
+            padding: 24px 40px;
+        }
+
+        .stats {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            flex: 1;
+            min-width: 160px;
+            background: white;
+            padding: 16px 20px;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #212121;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #757575;
+        }
+
+        .chapter {
+            margin-bottom: 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            background: white;
+        }
+
+        .chapter-header {
+            background: #fafafa;
+            color: #212121;
+            padding: 16px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.15s;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .chapter-header:hover {
+            background: #f5f5f5;
+        }
+
+        .chapter-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .chapter-title {
+            flex: 1;
+            font-size: 1em;
+            font-weight: 600;
+            color: #212121;
+        }
+
+        .chapter-stats {
+            display: flex;
+            gap: 12px;
+            font-size: 0.85em;
+            color: #757575;
+        }
+
+        .expand-icon {
+            transition: transform 0.2s;
+            font-size: 0.9em;
+            color: #757575;
+        }
+
+        .chapter.collapsed .expand-icon {
+            transform: rotate(-90deg);
+        }
+
+        .videos-list {
+            padding: 0;
+            display: none;
+        }
+
+        .chapter:not(.collapsed) .videos-list {
+            display: block;
+        }
+
+        .video-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background 0.15s;
+        }
+
+        .video-item:hover {
+            background: #fafafa;
+        }
+
+        .video-item:last-child {
+            border-bottom: none;
+        }
+
+        .video-checkbox {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .video-number {
+            background: #e0e0e0;
+            color: #424242;
+            width: 28px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.8em;
+        }
+
+        .video-name {
+            flex: 1;
+            font-size: 0.9em;
+            color: #212121;
+        }
+
+        .video-status {
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 0.8em;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-downloaded {
+            background: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .status-missing {
+            background: #FFEBEE;
+            color: #C62828;
+        }
+
+        .status-downloading {
+            background: #FFF3E0;
+            color: #EF6C00;
+        }
+
+        .progress-section {
+            padding: 20px 40px;
+            background: #212121;
+            border-bottom: 1px solid #e0e0e0;
+            display: none;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .progress-section.active {
+            display: block;
+            animation: slideDown 0.2s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: white;
+            font-size: 0.95em;
+        }
+
+        .progress-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-bar-container {
+            height: 8px;
+            background: #424242;
+            border-radius: 4px;
+            overflow: hidden;
+            border: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #2196F3;
+            transition: width 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            color: white;
+            font-weight: 600;
+            font-size: 0;
+            min-width: 0;
+            position: relative;
+            overflow: visible;
+        }
+
+
+        .progress-details {
+            margin-top: 16px;
+            padding: 0;
+            background: transparent;
+            border-radius: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .progress-details::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .progress-details::-webkit-scrollbar-track {
+            background: #424242;
+        }
+
+        .progress-details::-webkit-scrollbar-thumb {
+            background: #616161;
+            border-radius: 3px;
+        }
+
+        .progress-details::-webkit-scrollbar-thumb:hover {
+            background: #757575;
+        }
+
+        .progress-item {
+            padding: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: rgba(255, 255, 255, 0.7);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-item:last-child {
+            border-bottom: none;
+        }
+
+        .progress-item.success {
+            color: #81C784;
+        }
+
+        .progress-item.error {
+            color: #E57373;
+        }
+
+        .progress-item.downloading {
+            color: #FFD54F;
+        }
+
+        .progress-item span {
+            color: inherit;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+
+        .loading-spinner {
+            font-size: 3em;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div>
+                <h1>📚 Daily Mentor Video Downloader</h1>
+                <p>Automatic bulk download from Loom</p>
+            </div>
+        </div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="progress-header">
+                <div class="progress-title">
+                    <span id="progressTitle">Downloading videos...</span>
+                </div>
+                <span id="progressPercent" style="font-size: 1.2em; font-weight: 600;">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="progress-details" id="progressDetails"></div>
+        </div>
+
+        <div class="controls">
+            <div class="folder-section">
+                <label>Download Location</label>
+                <div class="folder-display" id="folderDisplay">
+                    ~/downloads/daily_mentor
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                    <input type="text" id="customFolderInput" placeholder="~/downloads/my_videos" 
+                           style="flex: 1; padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 0.9em;"
+                           onkeypress="if(event.key==='Enter') setCustomFolder()">
+                    <button class="btn btn-secondary" onclick="setCustomFolder()" id="setFolderBtn">
+                        Choose Folder
+                    </button>
+                </div>
+            </div>
+            <button class="btn btn-success" onclick="checkDownloaded()" id="refreshBtn">
+                Refresh
+            </button>
+            <button class="btn btn-primary" onclick="startDownload()" id="downloadBtn">
+                Download
+            </button>
+        </div>
+
+        <div class="content">
+            <div id="alertContainer"></div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalVideos">0</div>
+                    <div class="stat-label">Total Videos</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="downloadedVideos">0</div>
+                    <div class="stat-label">Downloaded</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="selectedVideos">0</div>
+                    <div class="stat-label">Selected</div>
+                </div>
+            </div>
+
+            <div id="chaptersContainer">
+                <div class="loading">
+                    <div class="loading-spinner spinner">⏳</div>
+                    <h3>Loading videos...</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allVideos = [];
+        let downloadedFiles = new Set();
+        
+        // Force reset to new default path (remove old localStorage if it has the old path)
+        const savedDir = localStorage.getItem('downloadDir');
+        if (!savedDir || savedDir.includes('Daily Mentor Videos') || savedDir.includes('Downloads/')) {
+            localStorage.setItem('downloadDir', '~/downloads/daily_mentor');
+        }
+        let currentDownloadDir = localStorage.getItem('downloadDir');
+
+        // Save download directory preference
+        function saveDownloadDir(dir) {
+            localStorage.setItem('downloadDir', dir);
+        }
+        
+        // Convert absolute path to tilde notation for display
+        function displayPath(path) {
+            const homeDir = '/Users/elizavetaborisova';
+            if (path.startsWith(homeDir)) {
+                return '~' + path.substring(homeDir.length);
+            }
+            return path;
+        }
+
+        // Show alert message
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.innerHTML = `
+                <span>${message}</span>
+            `;
+            container.appendChild(alert);
+            
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // Load videos from API
+        async function loadVideos() {
+            try {
+                const response = await fetch('/api/videos');
+                const data = await response.json();
+                
+                if (data.success) {
+                    allVideos = data.videos;
+                    await checkDownloaded();
+                    renderVideos();
+                } else {
+                    showAlert('Failed to load videos: ' + data.error, 'danger');
+                }
+            } catch (error) {
+                showAlert('Error loading videos: ' + error.message, 'danger');
+            }
+        }
+
+        // Set custom download folder
+        async function setCustomFolder() {
+            const input = document.getElementById('customFolderInput');
+            const folderPath = input.value.trim();
+            
+            if (!folderPath) {
+                showAlert('⚠️ Please enter a folder path', 'danger');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/select-folder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ folderPath: folderPath })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentDownloadDir = data.path;
+                    saveDownloadDir(data.path);
+                    document.getElementById('folderDisplay').textContent = displayPath(data.path);
+                    showAlert('✅ ' + data.message, 'success');
+                    input.value = '';
+                    await checkDownloaded();
+                } else {
+                    showAlert('❌ ' + data.error, 'danger');
+                }
+            } catch (error) {
+                showAlert('❌ Error setting folder: ' + error.message, 'danger');
+            }
+        }
+
+        // Check which videos are downloaded
+        async function checkDownloaded() {
+            try {
+                const response = await fetch('/api/check-downloaded?dir=' + encodeURIComponent(currentDownloadDir));
+                const data = await response.json();
+                
+                if (data.success) {
+                    downloadedFiles = new Set(data.downloaded);
+                    if (data.dir) {
+                        currentDownloadDir = data.dir;
+                        document.getElementById('folderDisplay').textContent = displayPath(data.dir);
+                    }
+                    renderVideos();
+                }
+            } catch (error) {
+                console.error('Error checking downloaded files:', error);
+            }
+        }
+
+        // Organize videos by chapter
+        function organizeByChapter() {
+            const chapters = {};
+            allVideos.forEach(video => {
+                if (!chapters[video.chapter]) {
+                    chapters[video.chapter] = [];
+                }
+                chapters[video.chapter].push(video);
+            });
+            return chapters;
+        }
+
+        // Check if video is downloaded
+        function isDownloaded(filename) {
+            return downloadedFiles.has(filename);
+        }
+
+        // Render videos
+        function renderVideos() {
+            const chapters = organizeByChapter();
+            const container = document.getElementById('chaptersContainer');
+            container.innerHTML = '';
+
+            Object.entries(chapters).forEach(([chapterName, chapterVideos]) => {
+                const downloadedCount = chapterVideos.filter(v => isDownloaded(v.filename)).length;
+                
+                const chapterDiv = document.createElement('div');
+                chapterDiv.className = 'chapter';
+                chapterDiv.innerHTML = `
+                    <div class="chapter-header" onclick="toggleChapter(this)">
+                        <input type="checkbox" class="chapter-checkbox" onclick="event.stopPropagation(); toggleChapter(this, true);" data-chapter="${chapterName}">
+                        <div class="chapter-title">${chapterName}</div>
+                        <div class="chapter-stats">
+                            <span>📹 ${chapterVideos.length} videos</span>
+                            <span>✅ ${downloadedCount} downloaded</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="videos-list">
+                        ${chapterVideos.map(video => `
+                            <div class="video-item" data-video-id="${video.id}">
+                                <input type="checkbox" class="video-checkbox" data-video-id="${video.id}" onchange="updateSelection()" ${isDownloaded(video.filename) ? '' : ''}>
+                                <div class="video-number">${video.sequentialNumber}</div>
+                                <div class="video-name">${video.videoName}</div>
+                                <div class="video-status ${isDownloaded(video.filename) ? 'status-downloaded' : 'status-missing'}">
+                                    ${isDownloaded(video.filename) ? '✅ Downloaded' : '❌ Missing'}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(chapterDiv);
+            });
+
+            updateStats();
+        }
+
+        // Toggle chapter collapse
+        function toggleChapter(element, isCheckbox = false) {
+            const chapter = isCheckbox ? element.closest('.chapter') : element.closest('.chapter');
+            if (!isCheckbox) {
+                chapter.classList.toggle('collapsed');
+            } else {
+                const chapterName = element.getAttribute('data-chapter');
+                const videoCheckboxes = chapter.querySelectorAll('.video-checkbox');
+                videoCheckboxes.forEach(checkbox => {
+                    checkbox.checked = element.checked;
+                });
+                updateSelection();
+            }
+        }
+
+        // Update selection count
+        function updateSelection() {
+            const selectedCount = document.querySelectorAll('.video-checkbox:checked').length;
+            document.getElementById('selectedVideos').textContent = selectedCount;
+            
+            // Update chapter checkboxes
+            document.querySelectorAll('.chapter').forEach(chapter => {
+                const chapterCheckbox = chapter.querySelector('.chapter-checkbox');
+                const videoCheckboxes = chapter.querySelectorAll('.video-checkbox');
+                const checkedCount = chapter.querySelectorAll('.video-checkbox:checked').length;
+                
+                chapterCheckbox.checked = checkedCount > 0 && checkedCount === videoCheckboxes.length;
+                chapterCheckbox.indeterminate = checkedCount > 0 && checkedCount < videoCheckboxes.length;
+            });
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById('totalVideos').textContent = allVideos.length;
+            document.getElementById('downloadedVideos').textContent = downloadedFiles.size;
+            updateSelection();
+        }
+
+        // Start download process
+        async function startDownload() {
+            const selectedCheckboxes = document.querySelectorAll('.video-checkbox:checked');
+            
+            if (selectedCheckboxes.length === 0) {
+                showAlert('⚠️ Please select at least one video to download.', 'danger');
+                return;
+            }
+
+            const videoIds = Array.from(selectedCheckboxes).map(cb => cb.getAttribute('data-video-id'));
+            
+            // Get selected videos info
+            const selectedVideos = allVideos.filter(v => videoIds.includes(v.id));
+            
+            // Show progress section at top
+            const progressSection = document.getElementById('progressSection');
+            const progressDetails = document.getElementById('progressDetails');
+            
+            progressSection.classList.add('active');
+            progressDetails.innerHTML = '';
+            
+            // Scroll to top to show progress
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            const downloadBtn = document.getElementById('downloadBtn');
+            const refreshBtn = document.getElementById('refreshBtn');
+            downloadBtn.disabled = true;
+            refreshBtn.disabled = true;
+            downloadBtn.innerHTML = '⏳ Downloading...';
+
+            // Reset progress
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = '0%';
+            progressBar.textContent = '0%';
+            progressBar.classList.add('downloading');
+            document.getElementById('progressPercent').textContent = '0%';
+            document.getElementById('progressTitle').textContent = '🚀 Downloading videos...';
+
+            let progressInterval = null;
+            
+            try {
+                // Download videos in parallel (5 at a time for speed)
+                let successCount = 0;
+                let failCount = 0;
+                let completedCount = 0;
+                const PARALLEL_DOWNLOADS = 5;
+
+                // Create progress items for all videos
+                const progressItems = {};
+                selectedVideos.forEach(video => {
+                    const progressItem = document.createElement('div');
+                    progressItem.id = `progress-${video.id}`;
+                    progressItem.className = 'progress-item';
+                    progressItem.innerHTML = `
+                        <span>📹 ${video.filename}</span>
+                        <span style="color: rgba(255,255,255,0.6);">⏳ Waiting...</span>
+                    `;
+                    progressDetails.appendChild(progressItem);
+                    progressItems[video.id] = progressItem;
+                });
+
+                // Track real-time progress per video
+                const videoProgress = {};
+                
+                // Function to download a single video
+                async function downloadVideo(video) {
+                    const progressItem = progressItems[video.id];
+                    videoProgress[video.id] = 0;
+                    
+                    // Mark as downloading
+                    progressItem.className = 'progress-item downloading';
+                    progressItem.innerHTML = `
+                        <span>📹 ${video.filename}</span>
+                        <span id="video-progress-${video.id}">⏳ 0%</span>
+                    `;
+                    
+                    try {
+                        const response = await fetch('/api/download', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                videoIds: [video.id],
+                                downloadDir: currentDownloadDir
+                            })
+                        });
+
+                        const data = await response.json();
+                        
+                        if (data.success && data.results[0].success) {
+                            // Success
+                            videoProgress[video.id] = 100;
+                            progressItem.className = 'progress-item success';
+                            progressItem.innerHTML = `
+                                <span>📹 ${video.filename}</span>
+                                <span>✅ Downloaded</span>
+                            `;
+                            return { success: true };
+                        } else {
+                            // Failed
+                            progressItem.className = 'progress-item error';
+                            const error = data.results[0].error || data.error || 'Unknown error';
+                            progressItem.innerHTML = `
+                                <span>📹 ${video.filename}</span>
+                                <span>❌ Failed</span>
+                            `;
+                            
+                            // Add error detail
+                            const errorDetail = document.createElement('div');
+                            errorDetail.className = 'progress-item error';
+                            errorDetail.style.fontSize = '0.85em';
+                            errorDetail.style.paddingLeft = '30px';
+                            errorDetail.innerHTML = `<span>↳ ${error}</span>`;
+                            progressDetails.insertBefore(errorDetail, progressItem.nextSibling);
+                            
+                            return { success: false };
+                        }
+                    } catch (error) {
+                        // Network error
+                        progressItem.className = 'progress-item error';
+                        progressItem.innerHTML = `
+                            <span>📹 ${video.filename}</span>
+                            <span>❌ Failed</span>
+                        `;
+                        return { success: false };
+                    }
+                }
+
+                // Real-time progress polling
+                let progressInterval = setInterval(async () => {
+                    try {
+                        const response = await fetch('/api/progress');
+                        const data = await response.json();
+                        
+                        if (data.success && data.progress) {
+                            // Update each video's progress display
+                            for (const [videoId, percent] of Object.entries(data.progress)) {
+                                const progressSpan = document.getElementById(`video-progress-${videoId}`);
+                                if (progressSpan && videoProgress[videoId] !== undefined && videoProgress[videoId] < 100) {
+                                    videoProgress[videoId] = percent;
+                                    progressSpan.textContent = `⏳ ${Math.round(percent)}%`;
+                                }
+                            }
+                            
+                            // Calculate overall progress
+                            let totalProgress = 0;
+                            for (const video of selectedVideos) {
+                                if (videoProgress[video.id] !== undefined) {
+                                    totalProgress += videoProgress[video.id];
+                                }
+                            }
+                            const overallPercent = Math.round(totalProgress / selectedVideos.length);
+                            
+                            // Update main progress bar
+                            document.getElementById('progressBar').style.width = overallPercent + '%';
+                            document.getElementById('progressBar').textContent = overallPercent + '%';
+                            document.getElementById('progressPercent').textContent = overallPercent + '%';
+                        }
+                    } catch (error) {
+                        console.error('Progress polling error:', error);
+                    }
+                }, 500); // Poll every 500ms for real-time updates
+
+                // Download in batches of PARALLEL_DOWNLOADS
+                for (let i = 0; i < selectedVideos.length; i += PARALLEL_DOWNLOADS) {
+                    const batch = selectedVideos.slice(i, i + PARALLEL_DOWNLOADS);
+                    
+                    // Download batch in parallel
+                    const results = await Promise.all(batch.map(video => downloadVideo(video)));
+                    
+                    // Update counts
+                    results.forEach(result => {
+                        if (result.success) {
+                            successCount++;
+                        } else {
+                            failCount++;
+                        }
+                        completedCount++;
+                    });
+                    
+                    // Scroll to show latest progress
+                    progressDetails.scrollTop = progressDetails.scrollHeight;
+                }
+
+                // Stop progress polling
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+
+                // Set to 100%
+                progressBar.classList.remove('downloading');
+                progressBar.style.width = '100%';
+                progressBar.textContent = '100%';
+                document.getElementById('progressPercent').textContent = '100%';
+                
+                // Complete
+                if (successCount === selectedVideos.length) {
+                    document.getElementById('progressTitle').textContent = '✅ All downloads complete!';
+                    showAlert(`Successfully downloaded ${successCount} video(s) to ${currentDownloadDir}`, 'success');
+                } else if (successCount > 0) {
+                    document.getElementById('progressTitle').textContent = `⚠️ Downloaded ${successCount} of ${selectedVideos.length} videos`;
+                    showAlert(`Downloaded ${successCount} video(s). ${failCount} failed - check details above.`, 'danger');
+                } else {
+                    document.getElementById('progressTitle').textContent = '❌ All downloads failed';
+                    showAlert('All downloads failed. Please check the errors above.', 'danger');
+                }
+                
+                // Refresh status
+                await checkDownloaded();
+                
+            } catch (error) {
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+                progressBar.classList.remove('downloading');
+                showAlert('Error during download: ' + error.message, 'danger');
+            } finally {
+                if (progressInterval) {
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+                progressBar.classList.remove('downloading');
+                downloadBtn.disabled = false;
+                refreshBtn.disabled = false;
+                downloadBtn.innerHTML = '⬇️ Download Selected';
+            }
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            // Update folder display with saved preference
+            document.getElementById('folderDisplay').textContent = displayPath(currentDownloadDir);
+            loadVideos();
+        });
+    </script>
+</body>
+</html>
+
