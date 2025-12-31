@@ -113,12 +113,12 @@ def download_loom_video(loom_url, output_path, video_id=None):
         
         # Try multiple format options in order of preference
         format_options = [
-            'hls-cdn-1500+hls-cdn-audio-audio',  # 720p video + audio
-            'hls-cdn-1000+hls-cdn-audio-audio',  # 480p video + audio
-            'hls-cdn-500+hls-cdn-audio-audio',   # 360p video + audio
-            'best[ext=mp4]/best',                 # Best available MP4
-            'bestvideo+bestaudio/best',           # Best video + best audio
-            'best',                                # Any best format
+            'hls-cdn-1500+hls-cdn-audio-audio/bestvideo+bestaudio/best',  # Try 720p, fallback to best
+            'hls-cdn-1000+hls-cdn-audio-audio/bestvideo+bestaudio/best',  # Try 480p, fallback to best
+            'hls-cdn-500+hls-cdn-audio-audio/bestvideo+bestaudio/best',   # Try 360p, fallback to best
+            'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',   # Best MP4 with fallbacks
+            'bestvideo+bestaudio/best',                                     # Best video + audio
+            'best',                                                         # Any format
         ]
         
         # Try each format until one works
@@ -126,9 +126,9 @@ def download_loom_video(loom_url, output_path, video_id=None):
         info = None
         downloaded_file = None
         
-        for format_option in format_options:
+        for idx, format_option in enumerate(format_options):
             try:
-                print(f"\nTrying format: {format_option}")
+                print(f"\nAttempt {idx + 1}/{len(format_options)}: Trying format '{format_option[:50]}...'")
                 
                 ydl_opts = {
                     'format': format_option,
@@ -139,6 +139,7 @@ def download_loom_video(loom_url, output_path, video_id=None):
                     'concurrent_fragment_downloads': 5,
                     'http_chunk_size': 10485760,
                     'progress_hooks': [progress_hook],
+                    'ignoreerrors': False,  # Don't ignore errors, we want to catch them
                 }
                 
                 # Download the video
@@ -147,22 +148,31 @@ def download_loom_video(loom_url, output_path, video_id=None):
                     
                     if info:
                         downloaded_file = ydl.prepare_filename(info)
+                        print(f"✅ Success with format: {format_option}")
                         # If we got here, download succeeded!
                         break
                     
-            except yt_dlp.utils.DownloadError as e:
-                last_error = str(e)
-                if 'Requested format is not available' in last_error:
-                    # This format doesn't exist, try the next one
-                    print(f"Format {format_option} not available, trying next...")
-                    continue
-                else:
-                    # Different error, stop trying
-                    raise
             except Exception as e:
-                # Unexpected error, stop trying
                 last_error = str(e)
-                raise
+                error_str = str(e).lower()
+                
+                # Check if it's a format availability error
+                if 'requested format is not available' in error_str or 'format' in error_str:
+                    print(f"⚠️ Format not available, trying next option...")
+                    # Try next format
+                    continue
+                elif 'private' in error_str or 'permission' in error_str:
+                    # Video is private, no point trying other formats
+                    print(f"❌ Video is private or requires authentication")
+                    raise
+                elif idx == len(format_options) - 1:
+                    # This was the last format option, give up
+                    print(f"❌ All format options exhausted")
+                    raise
+                else:
+                    # Some other error, try next format
+                    print(f"⚠️ Error: {str(e)[:100]}, trying next format...")
+                    continue
         
         # Check if we got info from any format
         if info is None or downloaded_file is None:
