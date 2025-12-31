@@ -106,48 +106,84 @@ def download_loom_video(loom_url, output_path, video_id=None):
                         else:
                             download_progress[video_id]['video'] = 100
         
-        # Fallback: Use yt-dlp to download
-        # For Loom, download 720p (lowest available) with audio and merge
-        ydl_opts = {
-            'format': 'hls-cdn-1500+hls-cdn-audio-audio',  # 720p video + audio
-            'outtmpl': output_template + '.%(ext)s',
-            'quiet': True,
-            'no_warnings': True,
-            'nocheckcertificate': True,
-            'concurrent_fragment_downloads': 5,  # Download 5 fragments at once for speed
-            'http_chunk_size': 10485760,  # 10MB chunks for faster download
-            'progress_hooks': [progress_hook],
-        }
-        
         # Initialize progress
         if video_id:
             with progress_lock:
                 download_progress[video_id] = {'video': 0, 'audio': 0, 'merging': False}
         
-        # Download the video
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(loom_url, download=True)
-            
-            # Get the actual downloaded file path
-            if info:
-                downloaded_file = ydl.prepare_filename(info)
-                file_size = os.path.getsize(downloaded_file) if os.path.exists(downloaded_file) else 0
+        # Try multiple format options in order of preference
+        format_options = [
+            'hls-cdn-1500+hls-cdn-audio-audio',  # 720p video + audio
+            'hls-cdn-1000+hls-cdn-audio-audio',  # 480p video + audio
+            'hls-cdn-500+hls-cdn-audio-audio',   # 360p video + audio
+            'best[ext=mp4]/best',                 # Best available MP4
+            'bestvideo+bestaudio/best',           # Best video + best audio
+            'best',                                # Any best format
+        ]
+        
+        # Try each format until one works
+        last_error = None
+        info = None
+        downloaded_file = None
+        
+        for format_option in format_options:
+            try:
+                print(f"\nTrying format: {format_option}")
                 
-                print(f"\n✅ Successfully downloaded: {downloaded_file}")
-                print(f"Size: {file_size / (1024*1024):.2f} MB\n")
-                
-                # Mark as complete
-                if video_id:
-                    with progress_lock:
-                        download_progress[video_id] = {'video': 100, 'audio': 100, 'merging': False}
-                
-                return {
-                    'success': True, 
-                    'path': downloaded_file,
-                    'size': file_size
+                ydl_opts = {
+                    'format': format_option,
+                    'outtmpl': output_template + '.%(ext)s',
+                    'quiet': True,
+                    'no_warnings': True,
+                    'nocheckcertificate': True,
+                    'concurrent_fragment_downloads': 5,
+                    'http_chunk_size': 10485760,
+                    'progress_hooks': [progress_hook],
                 }
-            else:
-                return {'success': False, 'error': 'Download failed - no info returned'}
+                
+                # Download the video
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(loom_url, download=True)
+                    
+                    if info:
+                        downloaded_file = ydl.prepare_filename(info)
+                        # If we got here, download succeeded!
+                        break
+                    
+            except yt_dlp.utils.DownloadError as e:
+                last_error = str(e)
+                if 'Requested format is not available' in last_error:
+                    # This format doesn't exist, try the next one
+                    print(f"Format {format_option} not available, trying next...")
+                    continue
+                else:
+                    # Different error, stop trying
+                    raise
+            except Exception as e:
+                # Unexpected error, stop trying
+                last_error = str(e)
+                raise
+        
+        # Check if we got info from any format
+        if info is None or downloaded_file is None:
+            return {'success': False, 'error': f'All formats failed. Last error: {last_error}'}
+        
+        # Successfully downloaded
+        file_size = os.path.getsize(downloaded_file) if os.path.exists(downloaded_file) else 0
+        
+        print(f"\n✅ Successfully downloaded: {downloaded_file}")
+        print(f"Size: {file_size / (1024*1024):.2f} MB\n")
+        
+        # Mark as complete
+        if video_id:
+            with progress_lock:
+                download_progress[video_id] = {'video': 100, 'audio': 100, 'merging': False}
+        
+        return {
+            'success': True, 
+            'path': downloaded_file,
+            'size': file_size
+        }
         
     except yt_dlp.utils.DownloadError as e:
         error_msg = str(e)
