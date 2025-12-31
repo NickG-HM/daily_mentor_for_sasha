@@ -112,12 +112,14 @@ def download_loom_video(loom_url, output_path, video_id=None):
                 download_progress[video_id] = {'video': 0, 'audio': 0, 'merging': False}
         
         # Try multiple format options in order of preference
+        # Note: Some Loom videos have audio embedded, others have separate streams
         format_options = [
-            'hls-cdn-1500+hls-cdn-audio-audio/bestvideo+bestaudio/best',  # Try 720p, fallback to best
-            'hls-cdn-1000+hls-cdn-audio-audio/bestvideo+bestaudio/best',  # Try 480p, fallback to best
-            'hls-cdn-500+hls-cdn-audio-audio/bestvideo+bestaudio/best',   # Try 360p, fallback to best
-            'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',   # Best MP4 with fallbacks
-            'bestvideo+bestaudio/best',                                     # Best video + audio
+            'hls-cdn-1500/hls-cdn-3200/best',                              # 720p or 1080p (audio embedded)
+            'hls-raw-1500/hls-raw-3200/best',                              # Raw 720p or 1080p
+            'hls-cdn-1500+hls-cdn-audio-audio/best',                       # 720p + separate audio (if exists)
+            'hls-cdn-3200+hls-cdn-audio-audio/best',                       # 1080p + separate audio (if exists)
+            'bestvideo[height<=720]+bestaudio/best[height<=720]/best',     # 720p or less
+            'bestvideo+bestaudio/best',                                     # Best video + best audio
             'best',                                                         # Any format
         ]
         
